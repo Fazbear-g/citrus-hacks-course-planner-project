@@ -264,7 +264,7 @@
 //   const char* sql = R"(
 //         SELECT course_id, course, units, COALESCE(prerequisite, ''),
 //                major, division, priority_score, difficulty_score,
-//                junior_plus_standing, taken
+//                junior_plus_standing
 //         FROM courses
 //         WHERE major = 'ALL'
 //            OR major = ?
@@ -290,7 +290,6 @@
 //     c.priority_score = sqlite3_column_double(stmt, 6);
 //     c.difficulty_score = sqlite3_column_double(stmt, 7);
 //     c.junior_plus_standing = sqlite3_column_int(stmt, 8) == 1;
-//     c.taken = sqlite3_column_int(stmt, 9) == 1;
 //     courses.push_back(c);
 //   }
 //   sqlite3_finalize(stmt);

@@ -22,8 +22,6 @@
 #include "course_plan.h"
 #include "directed_graph.h"
 
-// ── Course struct ─────────────────────────────────────────────────────────────
-
 // ── CourseGraph ───────────────────────────────────────────────────────────────
 // Wraps directed_graph and adds course-specific logic.
 // Edge direction: prerequisite → course
@@ -108,7 +106,7 @@ class CourseGraph {
       std::string curr = pq.top();
       pq.pop();
 
-      // 🔥 convert ID → Course here
+      // convert ID → Course here
       order.push_back(courseMap_->at(curr));
 
       for (const auto& neighbor : graph_.getNeighbors(curr)) {

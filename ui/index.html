@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UCR BCOE Course Planner</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <h1>UCR BCOE Course Planner</h1>
+    <form id="inputForm">
+        <label for="major">Major:</label>
+        <select id="major" required>
+            <option value="">Select Major</option>
+            <option value="cs">Computer Science</option>
+            <option value="ee">Electrical Engineering</option>
+            <option value="me">Mechanical Engineering</option>
+            <!-- Add more majors -->
+        </select><br><br>
+
+        <label for="apCourses">AP Courses (comma separated):</label>
+        <input type="text" id="apCourses" placeholder="e.g., Calculus AB, Physics C"><br><br>
+
+        <label for="ccCourses">Community College Courses (comma separated):</label>
+        <input type="text" id="ccCourses" placeholder="e.g., MATH 1A, CS 10"><br><br>
+
+        <label for="coursesTaken">Courses Already Taken (comma separated):</label>
+        <input type="text" id="coursesTaken" placeholder="e.g., CS 10, MATH 9A"><br><br>
+
+        <label for="standing">Current Standing:</label>
+        <select id="standing" required>
+            <option value="freshman">Freshman</option>
+            <option value="sophomore">Sophomore</option>
+            <option value="junior">Junior</option>
+            <option value="senior">Senior</option>
+        </select><br><br>
+
+        <button type="submit">Generate Course Plan</button>
+    </form>
+
+    <div id="plan"></div>
+
+    <script src="data.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

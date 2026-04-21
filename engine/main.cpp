@@ -194,11 +194,20 @@ void printCoursePlan(const std::vector<std::vector<Course>>& plan, int termsPerY
 }
 
 std::vector<std::vector<Course>> buildFullTerm(std::vector<std::vector<Course>> courses) {
+  // TODO: Does not account for multiple prerequisites.
+  // TODO: Adding a course to current_classes does not check if a course has already been taken so
+  // it could potentially duplicate. Aslo assumes that the lists of courses does not contain
+  // duplicates which it could
+
+  // TODO: Better optimize all combinations. Could prob become 2^n/2 or something better.
+
+  // TODO: If courses don't change we could use a unique hashing function for already pre computed
+  // majors. As in don't recompute and entire major if we already have. MUST UPDATE TO FOLLOW COURSE
+  // CHANGES HOWEVER
+
   std::vector<std::vector<Course>> full_term;
 
   std::unordered_set<std::string> taken_classes;  // hashed by id
-  // used for indicing through each list
-  std::vector<size_t> indices(courses.size(), 0);
   std::vector<Course> best_classes;
 
   // HARDCODED FOR NOW
@@ -232,29 +241,45 @@ std::vector<std::vector<Course>> buildFullTerm(std::vector<std::vector<Course>> 
   while (!finished) {
     std::vector<IndexCoursePair> current_classes;
 
+    float term_difficulty = 0.0;
+
     for (unsigned i = 0; i < courses.size(); i++) {
       if (courses.at(i).size() > 0) {
         unsigned offset = 0;
         IndexCoursePair temp = IndexCoursePair(i, 0, courses.at(i).at(offset));
         current_classes.push_back(temp);
+        term_difficulty += temp.course.difficulty_score;
         bool is_valid = true;
         offset++;
-        while (offset > courses.at(i).size() && is_valid) {
+        while (offset < courses.at(i).size() && is_valid) {
           Course curr = courses.at(i).at(offset);
           if (taken_classes.count(curr.prerequisite) == 1) {  // student has taken the valid prereq
             IndexCoursePair new_class = IndexCoursePair(i, offset, curr);
             current_classes.push_back(new_class);
+            term_difficulty += new_class.course.difficulty_score;
             offset++;
-          } else {
+          } else {  // can't take class
             is_valid = false;
           }
         }
-        // current_classes.push_back(courses[i][indices[i]]);
       }
     }
     if (current_classes.empty()) {  // no classes left
       finished = true;
       break;
+    }
+    term_difficulty = term_difficulty / current_classes.size();
+
+    // inject breadth and tech electives into the equation
+    if (term_difficulty > average_difficulty && breadth_count < max_breadth_count) {
+      Course ge = makeGE();
+      IndexCoursePair temp = IndexCoursePair(0, 0, ge);
+      current_classes.push_back(temp);
+    }
+    if (full_term.size() > 7 && tech_count < max_tech_elec) {
+      Course te = makeTechElective();
+      IndexCoursePair temp = IndexCoursePair(0, 0, te);
+      current_classes.push_back(temp);
     }
 
     std::pair<float, std::vector<int>> best_combination;
@@ -269,6 +294,8 @@ std::vector<std::vector<Course>> buildFullTerm(std::vector<std::vector<Course>> 
         current_difficulty +=
             current_classes.at(all_combinations.at(0).at(i)).course.difficulty_score;
       }
+      current_difficulty = current_difficulty / MAX_COURSES_PER_QUARTER;
+
       float squared_diff =
           (average_difficulty - current_difficulty) * (average_difficulty - current_difficulty);
 
@@ -284,6 +311,8 @@ std::vector<std::vector<Course>> buildFullTerm(std::vector<std::vector<Course>> 
           current_difficulty +=
               current_classes.at(all_combinations.at(i).at(j)).course.difficulty_score;
         }
+        current_difficulty = current_difficulty / MAX_COURSES_PER_QUARTER;
+
         squared_diff =
             (average_difficulty - current_difficulty) * (average_difficulty - current_difficulty);
         if (squared_diff < best_combination.first) {
@@ -291,7 +320,6 @@ std::vector<std::vector<Course>> buildFullTerm(std::vector<std::vector<Course>> 
           best_combination.second = all_combinations.at(i);
         }
       }
-      // TODO: DOES NOT ACCOUNT FOR POSSIBLE BREADTH COURSES OF TECH ELECTIVES
     } else {
       std::vector<int> indexes = build_indexes(current_classes.size());
       best_combination.first = 0.0;
@@ -317,14 +345,14 @@ std::vector<std::vector<Course>> buildFullTerm(std::vector<std::vector<Course>> 
         }
         float avg_term_diff = curr_diff / count;
         if (avg_term_diff > average_difficulty) {
-          Course ge = makeGE();
           if (breadth_count < max_breadth_count) {
+            Course ge = makeGE();
             best_classes.push_back(ge);
             breadth_count++;
           }
         } else if (avg_term_diff < average_difficulty && full_term.size() >= JUNIOR_PLUS_QUARTER) {
-          Course te = makeTechElective();
           if (tech_count < max_tech_elec) {
+            Course te = makeTechElective();
             best_classes.push_back(te);
             tech_count++;
           }
@@ -332,23 +360,35 @@ std::vector<std::vector<Course>> buildFullTerm(std::vector<std::vector<Course>> 
       }
     }
 
-    // IF THERE ARE LESS THAN 4 AVAILABLE CLASSES FILL WITH BREADTH/TECH ELECTIVE(less than/greater
-    // than) If Difficulty is too high replace one with a breadth
-
-    // OR DO A SECOND PASS THROUGH THE FINAL FULL TERM PLAN AND INSERT THE BEST FIT BREADTH/TECH
-    // ELELCTIVES
-
     std::vector<int> class_indices = best_combination.second;
+
+    std::sort(class_indices.begin(), class_indices.end(), [&](int a, int b) {
+      return current_classes.at(a).offset > current_classes.at(b).offset;
+    });
 
     for (unsigned i = 0; i < class_indices.size(); i++) {
       int index = class_indices.at(i);
       IndexCoursePair index_pair = current_classes.at(index);
 
       best_classes.push_back(index_pair.course);
-      courses.at(index_pair.index).erase(courses.at(index_pair.index).begin() + index_pair.offset);
-      taken_classes.insert(index_pair.course.course_id);
 
-      // indices.at(index_pair.index)++;
+      // REMOVE BY GREATEST OFFSET FIRST OR THE LIST WOULD MOVE WHILE DELETEING = SEGFAULT
+
+      if (index_pair.course.course_name != "Technical Elective" &&
+          index_pair.course.course_name != "General Education") {
+        auto& vec = courses.at(index_pair.index);
+
+        if (index_pair.offset < vec.size()) {
+          vec.erase(vec.begin() + index_pair.offset);
+        }
+        taken_classes.insert(index_pair.course.course_id);
+      } else {
+        if (index_pair.course.course_name == "Technical Elective") {
+          tech_count++;
+        } else {
+          breadth_count++;
+        }
+      }
     }
     full_term.push_back(best_classes);
     best_classes.clear();
